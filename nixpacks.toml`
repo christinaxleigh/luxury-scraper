@@ -1,18 +1,8 @@
 [phases.setup]
-nixPkgs = ["python313", "libxml2", "libxslt", "gcc", "g++"]
+nixPkgs = ["python313"]
 
 [phases.install]
-cmds = [
-    "pip install --upgrade pip setuptools wheel",
-    "pip install --no-build-isolation lxml==4.9.3",
-    "pip install python-Levenshtein==0.23.0",
-    "pip install -r requirements.txt"
-]
+cmds = ["pip install -r requirements.txt"]
 
 [start]
 cmd = "python main.py"
-```
-
-**Commit message:**
-```
-Fix lxml and Levenshtein build configuration
