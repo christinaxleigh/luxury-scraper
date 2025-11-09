@@ -34,21 +34,21 @@ class LuxuryScraperOrchestrator:
         
         logger.info("Luxury Scraper Orchestrator initialized")
     
-    def get_active_wishlist_items(self) -> List[WishlistItem]:
-        """
-        Get all active wishlist items from database
-        
-        Returns:
-            List of WishlistItem objects
-        """
-        client = get_session()
-        try:
-    result = client.table('wishlist_items').select('*').eq('active', True).execute()
-    items = result.data
-    logger.info(f"Found {len(items)} active wishlist items")
-    return items
-finally:
-    pass 
+def get_active_wishlist_items(self) -> List[WishlistItem]:
+    """
+    Get all active wishlist items from database
+    
+    Returns:
+        List of WishlistItem objects
+    """
+    client = get_session()
+    try:
+        result = client.table('wishlist_items').select('*').eq('active', True).execute()
+        items = result.data
+        logger.info(f"Found {len(items)} active wishlist items")
+        return items
+    finally:
+        pass  
     
     def build_search_params_from_wishlist(self, wishlist_items: List[WishlistItem]) -> Dict[str, List[Dict]]:
         """
