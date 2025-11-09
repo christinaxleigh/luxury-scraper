@@ -4,7 +4,7 @@ Matching engine to compare wishlist items with scraped listings
 from fuzzywuzzy import fuzz
 from typing import List, Dict, Optional
 import logging
-from models import WishlistItem, ScrapedListing, Match, get_session
+from models import WishlistItem, ScrapedListing, get_session
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
