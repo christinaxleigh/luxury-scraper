@@ -6,7 +6,7 @@ from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail, Email, To, Content
 from typing import List, Dict, Optional
 import logging
-from models import User, Match, Notification, get_session
+from models import User, get_session
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
