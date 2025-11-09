@@ -117,7 +117,7 @@ def get_active_wishlist_items(self) -> List[WishlistItem]:
             List of ScrapedListing objects
         """
         all_listings = []
-           client = get_session()
+        client = get_session()
         
         try:
             for platform_name, searches in search_params.items():
