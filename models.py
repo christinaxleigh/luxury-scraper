@@ -8,7 +8,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Initialize Supabase client
 def get_supabase_client():
     """Get Supabase client"""
     supabase_url = os.getenv('SUPABASE_URL')
@@ -19,7 +18,6 @@ def get_supabase_client():
     
     return create_client(supabase_url, supabase_key)
 
-# Helper functions for database operations
 def init_db():
     """Initialize database - tables already exist in Supabase"""
     client = get_supabase_client()
@@ -30,9 +28,9 @@ def get_session():
     """Get Supabase client (replaces SQLAlchemy session)"""
     return get_supabase_client()
 
-# Simple data access functions
 class User:
     """User operations"""
+    
     @staticmethod
     def create(client, email, location_country=None, location_state=None):
         data = {
@@ -50,6 +48,7 @@ class User:
 
 class WishlistItem:
     """Wishlist operations"""
+    
     @staticmethod
     def create(client, user_id, brand, max_price, **kwargs):
         data = {
@@ -68,6 +67,7 @@ class WishlistItem:
 
 class ScrapedListing:
     """Scraped listing operations"""
+    
     @staticmethod
     def create(client, platform, url, brand, title, price, **kwargs):
         data = {
@@ -85,4 +85,14 @@ class ScrapedListing:
     
     @staticmethod
     def check_exists(client, url):
-        result = client.table(
+        result = client.table('scraped_listings').select('id').eq('url', url).execute()
+        return len(result.data) > 0
+    
+    @staticmethod
+    def update_last_seen(client, url):
+        return client.table('scraped_listings').update({
+            'last_seen': datetime.utcnow().isoformat()
+        }).eq('url', url).execute()
+
+if __name__ == "__main__":
+    init_db()
