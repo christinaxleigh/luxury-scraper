@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import List, Dict
 import argparse
 
-from models import init_db, get_session, User, WishlistItem, ScrapedListing
+from models import init_db, get_session, WishlistItem, ScrapedListing
 from fashionphile_scraper import FashionphileScraper
 from therealreal_scraper import TheRealRealScraper
 from matching_engine import MatchingEngine
@@ -41,13 +41,14 @@ class LuxuryScraperOrchestrator:
         Returns:
             List of WishlistItem objects
         """
-        session = get_session()
+        client = get_session()
         try:
-            items = session.query(WishlistItem).filter_by(active=True).all()
-            logger.info(f"Found {len(items)} active wishlist items")
-            return items
-        finally:
-            session.close()
+    result = client.table('wishlist_items').select('*').eq('active', True).execute()
+    items = result.data
+    logger.info(f"Found {len(items)} active wishlist items")
+    return items
+finally:
+    pass 
     
     def build_search_params_from_wishlist(self, wishlist_items: List[WishlistItem]) -> Dict[str, List[Dict]]:
         """
@@ -116,7 +117,7 @@ class LuxuryScraperOrchestrator:
             List of ScrapedListing objects
         """
         all_listings = []
-        session = get_session()
+       client = get_session()
         
         try:
             for platform_name, searches in search_params.items():
@@ -134,24 +135,24 @@ class LuxuryScraperOrchestrator:
                         
                         # Convert to ScrapedListing objects and save to DB
                         for result in results:
-                            # Check if listing already exists
-                            existing = session.query(ScrapedListing).filter_by(
-                                platform=result['platform'],
-                                url=result['url']
-                            ).first()
-                            
-                            if existing:
-                                # Update last_seen timestamp
-                                existing.last_seen = datetime.utcnow()
-                                listing = existing
-                            else:
-                                # Create new listing
-                                listing = ScrapedListing(**result)
-                                session.add(listing)
+                        # Check if listing already exists
+existing_check = client.table('scraped_listings').select('id, url').eq('url', result['url']).execute()
+
+if existing_check.data:
+    # Update last_seen timestamp
+    client.table('scraped_listings').update({
+        'last_seen': datetime.utcnow().isoformat()
+    }).eq('url', result['url']).execute()
+    listing = existing_check.data[0]
+else:
+    # Create new listing
+    new_listing = client.table('scraped_listings').insert(result).execute()
+    listing = new_listing.data[0] if new_listing.data else result
                             
                             all_listings.append(listing)
                         
-                        session.commit()
+                pass  # No need to close Supabase client
+```
                         
                     except Exception as e:
                         logger.error(f"Error scraping {platform_name} with {search}: {e}")
