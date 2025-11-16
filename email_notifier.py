@@ -25,78 +25,98 @@ class EmailNotifier:
         else:
             self.client = SendGridAPIClient(self.api_key)
     
-   def create_match_email_html(self, user_email: str, matches: List[Dict]) -> str:
-        """
-        Create HTML email content for match notifications
-        
-        Args:
-            user_email: User email address
-            matches: List of match dictionaries with wishlist_item and listing
-            
-        Returns:
-            HTML string
-        """
+    def create_match_email_html(self, user_email: str, matches: List[Dict]) -> str:
+        """Create HTML email content for match notifications"""
         match_count = len(matches)
+        plural = "s" if match_count != 1 else ""
         
-        # Build HTML without f-string to avoid Python 3.13 issues
-        html = """
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <style>
-                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
-                .match { background: #f8f9fa; margin: 20px 0; padding: 20px; border-radius: 8px; border-left: 4px solid #667eea; }
-                .match-title { font-size: 18px; font-weight: bold; margin-bottom: 10px; }
-                .match-details { color: #666; }
-                .price { font-size: 24px; color: #28a745; font-weight: bold; }
-                .button { background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 15px; }
-                .footer { text-align: center; color: #999; margin-top: 30px; padding: 20px; }
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="header">
-                    <h1>🎯 New Luxury Finds!</h1>
-                    <p>We found """ + str(match_count) + """ item""" + ("s" if match_count != 1 else "") + """ matching your wishlist</p>
-                </div>
-        """
+        html_parts = [
+            '<!DOCTYPE html>',
+            '<html>',
+            '<head>',
+            '<style>',
+            'body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }',
+            '.container { max-width: 600px; margin: 0 auto; padding: 20px; }',
+            '.header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }',
+            '.match { background: #f8f9fa; margin: 20px 0; padding: 20px; border-radius: 8px; border-left: 4px solid #667eea; }',
+            '.match-title { font-size: 18px; font-weight: bold; margin-bottom: 10px; }',
+            '.match-details { color: #666; }',
+            '.price { font-size: 24px; color: #28a745; font-weight: bold; }',
+            '.button { background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 15px; }',
+            '.footer { text-align: center; color: #999; margin-top: 30px; padding: 20px; }',
+            '</style>',
+            '</head>',
+            '<body>',
+            '<div class="container">',
+            '<div class="header">',
+            '<h1>🎯 New Luxury Finds!</h1>',
+            '<p>We found ' + str(match_count) + ' item' + plural + ' matching your wishlist</p>',
+            '</div>'
+        ]
         
         for match in matches:
             listing = match.get('listing', {})
-            wishlist = match.get('wishlist_item', {})
             
-            brand = listing.get('brand', 'Unknown Brand')
-            title = listing.get('title', 'Untitled Item')
-            price = listing.get('price', 0)
-            currency = listing.get('currency', 'USD')
-            platform = listing.get('platform', 'Unknown')
-            url = listing.get('url', '#')
-            condition = listing.get('condition', 'N/A')
-            match_score = match.get('match_score', 0)
+            brand = str(listing.get('brand', 'Unknown Brand'))
+            title = str(listing.get('title', 'Untitled Item'))
+            price = float(listing.get('price', 0))
+            currency = str(listing.get('currency', 'USD'))
+            platform = str(listing.get('platform', 'Unknown'))
+            url = str(listing.get('url', '#'))
+            condition = str(listing.get('condition', 'N/A'))
+            match_score = int(match.get('match_score', 0))
             
-            html += """
-                <div class="match">
-                    <div class="match-title">""" + str(brand) + """ - """ + str(title) + """</div>
-                    <div class="match-details">
-                        <p><strong>Platform:</strong> """ + str(platform) + """</p>
-                        <p><strong>Condition:</strong> """ + str(condition) + """</p>
-                        <p><strong>Match Score:</strong> """ + str(match_score) + """%</p>
-                    </div>
-                    <div class="price">""" + str(currency) + """ $""" + f"{price:,.2f}" + """</div>
-                    <a href=\"""" + str(url) + """\" class="button">View Item →</a>
-                </div>
-            """
+            match_html = [
+                '<div class="match">',
+                '<div class="match-title">' + brand + ' - ' + title + '</div>',
+                '<div class="match-details">',
+                '<p><strong>Platform:</strong> ' + platform + '</p>',
+                '<p><strong>Condition:</strong> ' + condition + '</p>',
+                '<p><strong>Match Score:</strong> ' + str(match_score) + '%</p>',
+                '</div>',
+                '<div class="price">' + currency + ' $' + '{:,.2f}'.format(price) + '</div>',
+                '<a href="' + url + '" class="button">View Item →</a>',
+                '</div>'
+            ]
+            html_parts.extend(match_html)
         
-        html += """
-                <div class="footer">
-                    <p>You're receiving this because you have active wishlists</p>
-                    <p>Luxury Scraper © 2024</p>
-                </div>
-            </div>
-        </body>
-        </html>
-        """
+        html_parts.extend([
+            '<div class="footer">',
+            '<p>You\'re receiving this because you have active wishlists</p>',
+            '<p>Luxury Scraper © 2024</p>',
+            '</div>',
+            '</div>',
+            '</body>',
+            '</html>'
+        ])
         
-        return html
+        return '\n'.join(html_parts)
+    
+    def send_match_notification(self, user_email: str, matches: List[Dict]) -> bool:
+        """Send email notification for new matches"""
+        if not self.client:
+            logger.warning("SendGrid client not initialized - cannot send email")
+            return False
+        
+        try:
+            match_count = len(matches)
+            plural = "s" if match_count != 1 else ""
+            subject = "🎯 " + str(match_count) + " New Luxury Item" + plural + " Found!"
+            
+            html_content = self.create_match_email_html(user_email, matches)
+            
+            message = Mail(
+                from_email=self.from_email,
+                to_emails=user_email,
+                subject=subject,
+                html_content=html_content
+            )
+            
+            response = self.client.send(message)
+            logger.info("Email sent to " + user_email + " - Status: " + str(response.status_code))
+            
+            return response.status_code == 202
+            
+        except Exception as e:
+            logger.error("Error sending email to " + user_email + ": " + str(e))
+            return False
