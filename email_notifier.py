@@ -25,7 +25,7 @@ class EmailNotifier:
         else:
             self.client = SendGridAPIClient(self.api_key)
     
-    def create_match_email_html(self, user_email: str, matches: List[Dict]) -> str:
+   def create_match_email_html(self, user_email: str, matches: List[Dict]) -> str:
         """
         Create HTML email content for match notifications
         
@@ -38,21 +38,65 @@ class EmailNotifier:
         """
         match_count = len(matches)
         
-        html = f"""
+        # Build HTML without f-string to avoid Python 3.13 issues
+        html = """
         <!DOCTYPE html>
         <html>
         <head>
             <style>
-                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-                .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
-                .match {{ background: #f8f9fa; margin: 20px 0; padding: 20px; border-radius: 8px; border-left: 4px solid #667eea; }}
-                .match-title {{ font-size: 18px; font-weight: bold; margin-bottom: 10px; }}
-                .match-details {{ color: #666; }}
-                .price {{ font-size: 24px; color: #28a745; font-weight: bold; }}
-                .button {{ background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 15px; }}
-                .footer {{ text-align: center; color: #999; margin-top: 30px; padding: 20px; }}
+                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+                .match { background: #f8f9fa; margin: 20px 0; padding: 20px; border-radius: 8px; border-left: 4px solid #667eea; }
+                .match-title { font-size: 18px; font-weight: bold; margin-bottom: 10px; }
+                .match-details { color: #666; }
+                .price { font-size: 24px; color: #28a745; font-weight: bold; }
+                .button { background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 15px; }
+                .footer { text-align: center; color: #999; margin-top: 30px; padding: 20px; }
             </style>
         </head>
         <body>
             <div class="container">
+                <div class="header">
+                    <h1>🎯 New Luxury Finds!</h1>
+                    <p>We found """ + str(match_count) + """ item""" + ("s" if match_count != 1 else "") + """ matching your wishlist</p>
+                </div>
+        """
+        
+        for match in matches:
+            listing = match.get('listing', {})
+            wishlist = match.get('wishlist_item', {})
+            
+            brand = listing.get('brand', 'Unknown Brand')
+            title = listing.get('title', 'Untitled Item')
+            price = listing.get('price', 0)
+            currency = listing.get('currency', 'USD')
+            platform = listing.get('platform', 'Unknown')
+            url = listing.get('url', '#')
+            condition = listing.get('condition', 'N/A')
+            match_score = match.get('match_score', 0)
+            
+            html += """
+                <div class="match">
+                    <div class="match-title">""" + str(brand) + """ - """ + str(title) + """</div>
+                    <div class="match-details">
+                        <p><strong>Platform:</strong> """ + str(platform) + """</p>
+                        <p><strong>Condition:</strong> """ + str(condition) + """</p>
+                        <p><strong>Match Score:</strong> """ + str(match_score) + """%</p>
+                    </div>
+                    <div class="price">""" + str(currency) + """ $""" + f"{price:,.2f}" + """</div>
+                    <a href=\"""" + str(url) + """\" class="button">View Item →</a>
+                </div>
+            """
+        
+        html += """
+                <div class="footer">
+                    <p>You're receiving this because you have active wishlists</p>
+                    <p>Luxury Scraper © 2024</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        return html
