@@ -12,10 +12,14 @@ def get_supabase_client():
     """Get Supabase client"""
     supabase_url = os.getenv('SUPABASE_URL')
     supabase_key = os.getenv('SUPABASE_ANON_KEY')
-    
+
+    # Debug: Print what we got from environment (first 20 chars only for security)
+    print(f"DEBUG: SUPABASE_URL = {supabase_url[:20] + '...' if supabase_url else 'NOT SET'}")
+    print(f"DEBUG: SUPABASE_ANON_KEY = {supabase_key[:20] + '...' if supabase_key else 'NOT SET'}")
+
     if not supabase_url or not supabase_key:
         raise ValueError("SUPABASE_URL and SUPABASE_ANON_KEY must be set")
-    
+
     return create_client(supabase_url, supabase_key)
 
 def init_db():
