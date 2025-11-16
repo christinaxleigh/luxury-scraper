@@ -92,31 +92,41 @@ class EmailNotifier:
         
         return '\n'.join(html_parts)
     
-    def send_match_notification(self, user_email: str, matches: List[Dict]) -> bool:
+    def send_match_notification(self, user_id: int, matches: List[Dict]) -> bool:
         """Send email notification for new matches"""
         if not self.client:
             logger.warning("SendGrid client not initialized - cannot send email")
             return False
-        
+
         try:
+            # Fetch user email from Supabase
+            supabase_client = get_session()
+            user_result = supabase_client.table('users').select('email').eq('id', user_id).execute()
+
+            if not user_result.data:
+                logger.error(f"User {user_id} not found in database")
+                return False
+
+            user_email = user_result.data[0]['email']
+
             match_count = len(matches)
             plural = "s" if match_count != 1 else ""
             subject = "🎯 " + str(match_count) + " New Luxury Item" + plural + " Found!"
-            
+
             html_content = self.create_match_email_html(user_email, matches)
-            
+
             message = Mail(
                 from_email=self.from_email,
                 to_emails=user_email,
                 subject=subject,
                 html_content=html_content
             )
-            
+
             response = self.client.send(message)
             logger.info("Email sent to " + user_email + " - Status: " + str(response.status_code))
-            
+
             return response.status_code == 202
-            
+
         except Exception as e:
-            logger.error("Error sending email to " + user_email + ": " + str(e))
+            logger.error("Error sending email notification: " + str(e))
             return False

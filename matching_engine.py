@@ -4,7 +4,6 @@ Matching engine to compare wishlist items with scraped listings
 from fuzzywuzzy import fuzz
 from typing import List, Dict, Optional
 import logging
-from models import WishlistItem, ScrapedListing, get_session
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -21,294 +20,246 @@ class MatchingEngine:
         """
         self.min_match_score = min_match_score
     
-    def calculate_match_score(self, wishlist_item: WishlistItem, listing: ScrapedListing) -> float:
+    def calculate_match_score(self, wishlist_item: dict, listing: dict) -> float:
         """
         Calculate similarity score between wishlist item and listing
-        
+
         Args:
-            wishlist_item: WishlistItem from database
-            listing: ScrapedListing from database
-            
+            wishlist_item: Wishlist item dictionary from database
+            listing: Scraped listing dictionary from database
+
         Returns:
             Match score from 0-100
         """
         scores = []
         weights = []
-        
+
         # Brand match (highest weight)
-        if wishlist_item.brand and listing.brand:
+        w_brand = wishlist_item.get('brand')
+        l_brand = listing.get('brand')
+        if w_brand and l_brand:
             brand_score = fuzz.ratio(
-                wishlist_item.brand.lower(),
-                listing.brand.lower()
+                w_brand.lower(),
+                l_brand.lower()
             )
             scores.append(brand_score)
             weights.append(3.0)  # 3x weight for brand
-        
+
         # Model name match (high weight)
-        if wishlist_item.model_name and listing.model_name:
+        w_model = wishlist_item.get('model_name')
+        l_model = listing.get('model_name')
+        l_title = listing.get('title')
+
+        if w_model and l_model:
             model_score = fuzz.partial_ratio(
-                wishlist_item.model_name.lower(),
-                listing.model_name.lower()
+                w_model.lower(),
+                l_model.lower()
             )
             scores.append(model_score)
             weights.append(2.5)
-        elif wishlist_item.model_name and listing.title:
+        elif w_model and l_title:
             # Try matching model name against title
             model_score = fuzz.partial_ratio(
-                wishlist_item.model_name.lower(),
-                listing.title.lower()
+                w_model.lower(),
+                l_title.lower()
             )
             scores.append(model_score)
             weights.append(2.0)
-        
+
         # Item type match
-        if wishlist_item.item_type and listing.item_type:
+        w_type = wishlist_item.get('item_type')
+        l_type = listing.get('item_type')
+        if w_type and l_type:
             type_score = fuzz.ratio(
-                wishlist_item.item_type.lower(),
-                listing.item_type.lower()
+                w_type.lower(),
+                l_type.lower()
             )
             scores.append(type_score)
             weights.append(1.5)
-        
+
         # Size match (exact or close)
-        if wishlist_item.size and listing.size:
-            size_score = 100 if wishlist_item.size.lower() == listing.size.lower() else 0
+        w_size = wishlist_item.get('size')
+        l_size = listing.get('size')
+        if w_size and l_size:
+            size_score = 100 if w_size.lower() == l_size.lower() else 0
             scores.append(size_score)
             weights.append(1.0)
-        
+
         # Color match
-        if wishlist_item.color and listing.color:
+        w_color = wishlist_item.get('color')
+        l_color = listing.get('color')
+        if w_color and l_color:
             color_score = fuzz.ratio(
-                wishlist_item.color.lower(),
-                listing.color.lower()
+                w_color.lower(),
+                l_color.lower()
             )
             scores.append(color_score)
             weights.append(1.0)
-        
+
         # Calculate weighted average
         if not scores:
             return 0.0
-        
+
         weighted_sum = sum(s * w for s, w in zip(scores, weights))
         total_weight = sum(weights)
-        
+
         return weighted_sum / total_weight
     
-    def is_price_match(self, wishlist_item: WishlistItem, listing: ScrapedListing) -> bool:
+    def is_price_match(self, wishlist_item: dict, listing: dict) -> bool:
         """
         Check if listing price is within wishlist range
-        
+
         Args:
-            wishlist_item: WishlistItem from database
-            listing: ScrapedListing from database
-            
+            wishlist_item: Wishlist item dictionary from database
+            listing: Scraped listing dictionary from database
+
         Returns:
             True if price matches criteria
         """
-        if not listing.price:
+        listing_price = listing.get('price')
+        if not listing_price:
             return False
-        
+
         # Convert currencies if needed (simplified - in production use proper conversion)
-        listing_price = listing.price
-        if listing.currency != wishlist_item.currency:
+        listing_currency = listing.get('currency', 'USD')
+        wishlist_currency = wishlist_item.get('currency', 'USD')
+        if listing_currency != wishlist_currency:
             # Simplified: assume USD for now
             # In production, use a currency conversion API
             pass
-        
+
         # Check price range
-        if wishlist_item.min_price and listing_price < wishlist_item.min_price:
+        min_price = wishlist_item.get('min_price')
+        max_price = wishlist_item.get('max_price')
+
+        if min_price and listing_price < min_price:
             return False
-        
-        if wishlist_item.max_price and listing_price > wishlist_item.max_price:
+
+        if max_price and listing_price > max_price:
             return False
-        
+
         return True
     
-    def is_condition_match(self, wishlist_item: WishlistItem, listing: ScrapedListing) -> bool:
+    def is_condition_match(self, wishlist_item: dict, listing: dict) -> bool:
         """
         Check if listing condition matches preferences
-        
+
         Args:
-            wishlist_item: WishlistItem from database
-            listing: ScrapedListing from database
-            
+            wishlist_item: Wishlist item dictionary from database
+            listing: Scraped listing dictionary from database
+
         Returns:
             True if condition is acceptable
         """
-        if not listing.condition:
+        condition = listing.get('condition')
+        if not condition:
             return True  # Assume acceptable if not specified
-        
-        condition_lower = listing.condition.lower()
-        
-        if 'new' in condition_lower and not wishlist_item.condition_new:
+
+        condition_lower = condition.lower()
+
+        # Default to True for all conditions if not specified
+        if 'new' in condition_lower and not wishlist_item.get('condition_new', True):
             return False
-        if 'excellent' in condition_lower and not wishlist_item.condition_excellent:
+        if 'excellent' in condition_lower and not wishlist_item.get('condition_excellent', True):
             return False
-        if 'good' in condition_lower and not wishlist_item.condition_good:
+        if 'good' in condition_lower and not wishlist_item.get('condition_good', True):
             return False
-        if 'fair' in condition_lower and not wishlist_item.condition_fair:
+        if 'fair' in condition_lower and not wishlist_item.get('condition_fair', False):
             return False
-        
+
         return True
     
-    def find_matches(self, wishlist_items: List[WishlistItem], listings: List[ScrapedListing]) -> List[Dict]:
+    def find_matches(self, wishlist_items: List[dict], listings: List[dict]) -> List[Dict]:
         """
         Find matches between wishlist items and listings
-        
+
         Args:
-            wishlist_items: List of WishlistItem objects
-            listings: List of ScrapedListing objects
-            
+            wishlist_items: List of wishlist item dictionaries
+            listings: List of scraped listing dictionaries
+
         Returns:
             List of match dictionaries with scores
         """
         matches = []
-        
+
         for wishlist_item in wishlist_items:
-            if not wishlist_item.active:
+            if not wishlist_item.get('active', True):
                 continue
-            
+
             for listing in listings:
                 # Calculate match score
                 score = self.calculate_match_score(wishlist_item, listing)
-                
+
                 if score < self.min_match_score:
                     continue
-                
+
                 # Check price range
                 price_match = self.is_price_match(wishlist_item, listing)
                 if not price_match:
                     continue
-                
+
                 # Check condition preferences
                 condition_match = self.is_condition_match(wishlist_item, listing)
                 if not condition_match:
                     continue
-                
+
                 matches.append({
-                    'wishlist_item': wishlist_item,
+                    'wishlist_item_id': wishlist_item.get('id'),
+                    'user_id': wishlist_item.get('user_id'),
                     'listing': listing,
-                    'score': score,
+                    'match_score': score,
                     'price_match': price_match
                 })
-                
-                logger.info(f"Match found! Score: {score:.1f} - {listing.brand} {listing.title} for ${listing.price}")
-        
+
+                brand = listing.get('brand', 'Unknown')
+                title = listing.get('title', 'Unknown')
+                price = listing.get('price', 0)
+                logger.info(f"Match found! Score: {score:.1f} - {brand} {title} for ${price}")
+
         # Sort by score (highest first)
-        matches.sort(key=lambda x: x['score'], reverse=True)
-        
+        matches.sort(key=lambda x: x['match_score'], reverse=True)
+
         return matches
     
-    def save_matches(self, matches: List[Dict]) -> int:
-        """
-        Save matches to database
-        
-        Args:
-            matches: List of match dictionaries
-            
-        Returns:
-            Number of matches saved
-        """
-        session = get_session()
-        saved_count = 0
-        
-        try:
-            for match_data in matches:
-                wishlist_item = match_data['wishlist_item']
-                listing = match_data['listing']
-                
-                # Check if match already exists
-                existing = session.query(Match).filter_by(
-                    wishlist_item_id=wishlist_item.id,
-                    listing_id=listing.id
-                ).first()
-                
-                if existing:
-                    continue
-                
-                # Create new match
-                match = Match(
-                    wishlist_item_id=wishlist_item.id,
-                    listing_id=listing.id,
-                    match_score=match_data['score'],
-                    price_within_range=match_data['price_match'],
-                    notified=False
-                )
-                
-                session.add(match)
-                saved_count += 1
-            
-            session.commit()
-            logger.info(f"Saved {saved_count} new matches to database")
-            
-        except Exception as e:
-            session.rollback()
-            logger.error(f"Error saving matches: {e}")
-        finally:
-            session.close()
-        
-        return saved_count
+    # Note: save_matches is not implemented for Supabase yet
+    # Matches are currently stored in memory and passed to the email notifier
+    # Future: Add save_matches implementation using Supabase client
 
 # Test matching engine
 if __name__ == "__main__":
-    from models import init_db
-    
-    # Initialize database
-    init_db()
-    
+    print("Matching engine test")
+
     # Create test data
-    session = get_session()
-    
-    # Create test user
-    from models import User
-    user = User(
-        email="test@example.com",
-        location_country="US",
-        location_state="CA"
-    )
-    session.add(user)
-    session.commit()
-    
-    # Create test wishlist item
-    wishlist = WishlistItem(
-        user_id=user.id,
-        brand="Chanel",
-        item_type="handbag",
-        model_name="Classic Flap",
-        max_price=5000,
-        condition_excellent=True,
-        condition_good=True
-    )
-    session.add(wishlist)
-    session.commit()
-    
-    # Create test listing
-    listing = ScrapedListing(
-        platform="Fashionphile",
-        url="https://example.com/item",
-        brand="Chanel",
-        title="Chanel Classic Medium Flap Bag",
-        item_type="handbag",
-        model_name="Classic Flap",
-        condition="excellent",
-        price=4500,
-        currency="USD"
-    )
-    session.add(listing)
-    session.commit()
-    
+    wishlist_item = {
+        'id': 1,
+        'user_id': 1,
+        'brand': 'Chanel',
+        'item_type': 'handbag',
+        'model_name': 'Classic Flap',
+        'max_price': 5000,
+        'condition_excellent': True,
+        'condition_good': True,
+        'active': True
+    }
+
+    listing = {
+        'platform': 'Fashionphile',
+        'url': 'https://example.com/item',
+        'brand': 'Chanel',
+        'title': 'Chanel Classic Medium Flap Bag',
+        'item_type': 'handbag',
+        'model_name': 'Classic Flap',
+        'condition': 'excellent',
+        'price': 4500,
+        'currency': 'USD'
+    }
+
     # Test matching
     engine = MatchingEngine(min_match_score=70)
-    matches = engine.find_matches([wishlist], [listing])
-    
+    matches = engine.find_matches([wishlist_item], [listing])
+
     print(f"\nFound {len(matches)} matches:")
     for match in matches:
-        print(f"  Score: {match['score']:.1f}")
-        print(f"  Item: {match['listing'].brand} {match['listing'].title}")
-        print(f"  Price: ${match['listing'].price}")
-    
-    # Save matches
-    saved = engine.save_matches(matches)
-    print(f"\nSaved {saved} matches to database")
-    
-    session.close()
+        print(f"  Score: {match['match_score']:.1f}")
+        print(f"  Item: {match['listing']['brand']} {match['listing']['title']}")
+        print(f"  Price: ${match['listing']['price']}")

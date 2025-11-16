@@ -8,38 +8,38 @@ import json
 
 def add_user(email: str, country: str = "US", state: str = None, zip_code: str = None):
     """Add a new user"""
-    session = get_session()
-    
+    client = get_session()
+
     try:
         # Check if user exists
-        existing = session.query(User).filter_by(email=email).first()
-        if existing:
-            print(f"User {email} already exists (ID: {existing.id})")
-            return existing.id
-        
+        existing = client.table('users').select('*').eq('email', email).execute()
+        if existing.data:
+            user = existing.data[0]
+            print(f"User {email} already exists (ID: {user['id']})")
+            return user['id']
+
         # Create new user
-        user = User(
+        result = User.create(
+            client=client,
             email=email,
             location_country=country,
-            location_state=state,
-            location_zip=zip_code
+            location_state=state
         )
-        session.add(user)
-        session.commit()
-        
-        print(f"✓ User created successfully!")
-        print(f"  Email: {user.email}")
-        print(f"  ID: {user.id}")
-        print(f"  Location: {user.location_state}, {user.location_country}")
-        
-        return user.id
-        
+
+        if result.data:
+            user = result.data[0]
+            print(f"✓ User created successfully!")
+            print(f"  Email: {user['email']}")
+            print(f"  ID: {user['id']}")
+            print(f"  Location: {user.get('location_state')}, {user.get('location_country')}")
+            return user['id']
+        else:
+            print("Error: Failed to create user")
+            return None
+
     except Exception as e:
-        session.rollback()
         print(f"Error adding user: {e}")
         return None
-    finally:
-        session.close()
 
 def add_wishlist_item(
     user_id: int,
@@ -57,139 +57,156 @@ def add_wishlist_item(
     priority: str = "medium"
 ):
     """Add a wishlist item for a user"""
-    session = get_session()
-    
+    client = get_session()
+
     try:
         # Check if user exists
-        user = session.query(User).get(user_id)
-        if not user:
+        user_check = client.table('users').select('id').eq('id', user_id).execute()
+        if not user_check.data:
             print(f"Error: User ID {user_id} not found")
             return None
-        
+
         # Create wishlist item
-        wishlist = WishlistItem(
+        result = WishlistItem.create(
+            client=client,
             user_id=user_id,
             brand=brand,
+            max_price=max_price,
             item_type=item_type,
             model_name=model_name,
             size=size,
             color=color,
             min_price=min_price,
-            max_price=max_price,
             condition_new=condition_new,
             condition_excellent=condition_excellent,
             condition_good=condition_good,
             condition_fair=condition_fair,
             priority=priority
         )
-        session.add(wishlist)
-        session.commit()
-        
-        print(f"✓ Wishlist item created successfully!")
-        print(f"  ID: {wishlist.id}")
-        print(f"  Brand: {wishlist.brand}")
-        if wishlist.model_name:
-            print(f"  Model: {wishlist.model_name}")
-        if wishlist.item_type:
-            print(f"  Type: {wishlist.item_type}")
-        if wishlist.max_price:
-            print(f"  Max Price: ${wishlist.max_price:,.2f}")
-        print(f"  Priority: {wishlist.priority}")
-        
-        return wishlist.id
-        
+
+        if result.data:
+            wishlist = result.data[0]
+            print(f"✓ Wishlist item created successfully!")
+            print(f"  ID: {wishlist['id']}")
+            print(f"  Brand: {wishlist['brand']}")
+            if wishlist.get('model_name'):
+                print(f"  Model: {wishlist['model_name']}")
+            if wishlist.get('item_type'):
+                print(f"  Type: {wishlist['item_type']}")
+            if wishlist.get('max_price'):
+                print(f"  Max Price: ${wishlist['max_price']:,.2f}")
+            print(f"  Priority: {wishlist.get('priority', 'medium')}")
+            return wishlist['id']
+        else:
+            print("Error: Failed to create wishlist item")
+            return None
+
     except Exception as e:
-        session.rollback()
         print(f"Error adding wishlist item: {e}")
         return None
-    finally:
-        session.close()
 
 def list_users():
     """List all users"""
-    session = get_session()
-    
+    client = get_session()
+
     try:
-        users = session.query(User).all()
-        
+        result = client.table('users').select('*').execute()
+        users = result.data
+
         if not users:
             print("No users found.")
             return
-        
+
         print(f"\n{'='*80}")
         print(f"{'ID':<5} {'Email':<30} {'Location':<25} {'Active':<10} {'Created'}")
         print(f"{'='*80}")
-        
+
         for user in users:
-            location = f"{user.location_state or ''}, {user.location_country or ''}"
-            active = "Yes" if user.active else "No"
-            created = user.created_at.strftime("%Y-%m-%d") if user.created_at else "N/A"
-            
-            print(f"{user.id:<5} {user.email:<30} {location:<25} {active:<10} {created}")
-        
+            location = f"{user.get('location_state') or ''}, {user.get('location_country') or ''}"
+            active = "Yes" if user.get('active', True) else "No"
+            created_str = user.get('created_at', 'N/A')
+            if created_str != 'N/A':
+                from dateutil import parser
+                try:
+                    created = parser.parse(created_str).strftime("%Y-%m-%d")
+                except:
+                    created = created_str[:10] if len(created_str) >= 10 else created_str
+            else:
+                created = "N/A"
+
+            print(f"{user['id']:<5} {user['email']:<30} {location:<25} {active:<10} {created}")
+
         print(f"{'='*80}\n")
-        
-    finally:
-        session.close()
+
+    except Exception as e:
+        print(f"Error listing users: {e}")
 
 def list_wishlists(user_id: int = None):
     """List wishlist items"""
-    session = get_session()
-    
+    client = get_session()
+
     try:
-        query = session.query(WishlistItem)
         if user_id:
-            query = query.filter_by(user_id=user_id)
-        
-        items = query.all()
-        
+            result = client.table('wishlist_items').select('*, users(email)').eq('user_id', user_id).execute()
+        else:
+            result = client.table('wishlist_items').select('*, users(email)').execute()
+
+        items = result.data
+
         if not items:
             print("No wishlist items found.")
             return
-        
+
         print(f"\n{'='*100}")
         print(f"{'ID':<5} {'User':<20} {'Brand':<15} {'Model/Type':<25} {'Price Range':<20} {'Active'}")
         print(f"{'='*100}")
-        
+
         for item in items:
-            user_email = item.user.email if item.user else "N/A"
-            model_type = item.model_name or item.item_type or "Any"
-            
-            if item.min_price and item.max_price:
-                price_range = f"${item.min_price:,.0f} - ${item.max_price:,.0f}"
-            elif item.max_price:
-                price_range = f"Up to ${item.max_price:,.0f}"
+            # Handle user email from joined data
+            user_email = "N/A"
+            if 'users' in item and item['users']:
+                if isinstance(item['users'], dict):
+                    user_email = item['users'].get('email', 'N/A')
+                elif isinstance(item['users'], list) and len(item['users']) > 0:
+                    user_email = item['users'][0].get('email', 'N/A')
+
+            model_type = item.get('model_name') or item.get('item_type') or "Any"
+
+            min_price = item.get('min_price')
+            max_price = item.get('max_price')
+            if min_price and max_price:
+                price_range = f"${min_price:,.0f} - ${max_price:,.0f}"
+            elif max_price:
+                price_range = f"Up to ${max_price:,.0f}"
             else:
                 price_range = "Any"
-            
-            active = "Yes" if item.active else "No"
-            
-            print(f"{item.id:<5} {user_email:<20} {item.brand:<15} {model_type:<25} {price_range:<20} {active}")
-        
+
+            active = "Yes" if item.get('active', True) else "No"
+
+            print(f"{item['id']:<5} {user_email:<20} {item['brand']:<15} {model_type:<25} {price_range:<20} {active}")
+
         print(f"{'='*100}\n")
-        
-    finally:
-        session.close()
+
+    except Exception as e:
+        print(f"Error listing wishlists: {e}")
 
 def delete_wishlist(wishlist_id: int):
     """Delete a wishlist item"""
-    session = get_session()
-    
+    client = get_session()
+
     try:
-        item = session.query(WishlistItem).get(wishlist_id)
-        if not item:
+        # Check if item exists
+        check = client.table('wishlist_items').select('id').eq('id', wishlist_id).execute()
+        if not check.data:
             print(f"Error: Wishlist item {wishlist_id} not found")
             return
-        
-        session.delete(item)
-        session.commit()
+
+        # Delete the item
+        client.table('wishlist_items').delete().eq('id', wishlist_id).execute()
         print(f"✓ Wishlist item {wishlist_id} deleted successfully")
-        
+
     except Exception as e:
-        session.rollback()
         print(f"Error deleting wishlist item: {e}")
-    finally:
-        session.close()
 
 def main():
     """Main CLI entry point"""
