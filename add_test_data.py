@@ -43,6 +43,13 @@ def add_test_data():
                 'model_name': 'Margaux 15',
                 'max_price': 4000,
                 'priority': 'medium'
+            },
+            {
+                'brand': 'Hermès',
+                'item_type': 'bag',
+                'model_name': 'JPG Shoulder 42',
+                'max_price': 20000,
+                'priority': 'high'
             }
         ]
 
