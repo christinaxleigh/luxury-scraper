@@ -53,8 +53,8 @@ class BaseScraper:
             
             # Respect rate limits
             time.sleep(self.rate_limit_delay)
-            
-            return BeautifulSoup(response.content, 'lxml')
+
+            return BeautifulSoup(response.content, 'html.parser')
             
         except requests.exceptions.RequestException as e:
             logger.error(f"Error fetching {url}: {e}")
