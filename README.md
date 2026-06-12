@@ -72,10 +72,10 @@ python cli.py add-wishlist 1 "Chanel" \
 
 ```bash
 # Run once to test
-python main.py --mode once
+python main.py
 
 # Or start the scheduler (runs every 15 minutes)
-python main.py --mode schedule --interval 15
+python main.py --schedule --interval 15
 ```
 
 ## 📖 Detailed Usage
@@ -134,13 +134,13 @@ python cli.py add-wishlist 1 "Louis Vuitton" \
 
 ```bash
 # One-time run (good for testing)
-python main.py --mode once
+python main.py
 
 # Scheduled mode (runs continuously)
-python main.py --mode schedule --interval 15
+python main.py --schedule --interval 15
 
 # Custom interval (every 30 minutes)
-python main.py --mode schedule --interval 30
+python main.py --schedule --interval 30
 ```
 
 ## 🏗️ Architecture
@@ -326,10 +326,10 @@ python cli.py add-wishlist 1 "Louis Vuitton" --type "handbag" --max-price 2000
 python cli.py list-wishlists
 
 # 4. Run a test scrape
-python main.py --mode once
+python main.py
 
 # 5. Start continuous monitoring
-python main.py --mode schedule --interval 15
+python main.py --schedule --interval 15
 ```
 
 ## 💡 Tips for Best Results
